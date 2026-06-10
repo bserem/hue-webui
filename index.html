@@ -18,8 +18,26 @@
     --accent: #ffb15e;
     --lamp-off: #483e33;
     --track: #3c332a;
+    --knob: #e9ddc9;
+    --secondary-hover: #3a2d1f;
+    --glow: rgba(255, 177, 94, 0.06);
     --radius: 12px;
     --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  }
+  /* bright mode: the same room at midday */
+  body.bright {
+    --bg: #f3ecdf;
+    --panel: #fbf7ee;
+    --panel2: #ece2d0;
+    --line: #ddd0bb;
+    --text: #2b2118;
+    --muted: #8a7a64;
+    --accent: #d98a24;
+    --lamp-off: #c9bda9;
+    --track: #ddd0bb;
+    --knob: #fffdf8;
+    --secondary-hover: #e0d3bd;
+    --glow: rgba(217, 138, 36, 0.08);
   }
   * { box-sizing: border-box; }
   body {
@@ -34,7 +52,7 @@
     position: fixed;
     inset: 0;
     pointer-events: none;
-    background: radial-gradient(60% 45% at 50% 0%, rgba(255, 177, 94, 0.06), transparent 70%);
+    background: radial-gradient(60% 45% at 50% 0%, var(--glow), transparent 70%);
   }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -163,7 +181,7 @@
     position: absolute;
     width: 20px; height: 20px;
     left: 3px; top: 3px;
-    background: #e9ddc9;
+    background: var(--knob);
     border-radius: 50%;
     transition: transform 0.2s;
   }
@@ -325,7 +343,7 @@
     font-size: 14px;
     cursor: pointer;
   }
-  button.secondary:hover { background: #3a2d1f; }
+  button.secondary:hover { background: var(--secondary-hover); }
   .msg { margin-top: 16px; font-size: 14px; min-height: 20px; }
   .msg.err { color: #ff8a76; }
   .divider {
@@ -422,6 +440,7 @@
   </div>
   <div class="right">
     <span class="status" id="status"></span>
+    <button class="iconbtn" id="theme-btn" title="Switch bright/dark mode">☀</button>
     <button class="iconbtn" id="reorder-btn" title="Reorder rooms and lights">⇅</button>
     <button class="iconbtn" id="settings-btn" title="Settings">⚙</button>
   </div>
@@ -1327,6 +1346,24 @@ $("#reorder-btn").addEventListener("click", () => {
   if (lastGroups && lastLights) render(lastGroups, lastLights);
   if (!reorderMode) refresh();
 });
+
+// bright/dark UI mode
+
+const THEME_STORAGE = "hue-ui-theme";
+let theme = localStorage.getItem(THEME_STORAGE) || "dark";
+
+function applyTheme() {
+  document.body.classList.toggle("bright", theme === "bright");
+  $("#theme-btn").textContent = theme === "bright" ? "☾" : "☀";
+}
+
+$("#theme-btn").addEventListener("click", () => {
+  theme = theme === "bright" ? "dark" : "bright";
+  localStorage.setItem(THEME_STORAGE, theme);
+  applyTheme();
+});
+
+applyTheme();
 
 // master switch: group 0 addresses every light on the bridge
 $("#all-toggle").addEventListener("change", async (e) => {

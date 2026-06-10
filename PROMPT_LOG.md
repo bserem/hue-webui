@@ -3,6 +3,8 @@
 Chronological log of the prompts that built this project. Each entry is the
 user prompt verbatim; the resulting work is in the matching git commits.
 
+Only prompts related to code itself (`index.html`) are mentioned, to reduce noise.
+
 ## 1. Initial build
 
 > I want to make a no dependency, single page html HUE lights control.
@@ -69,3 +71,7 @@ user prompt verbatim; the resulting work is in the matching git commits.
 Follow-up fix during review:
 
 > the room toggles don't update the light toggles now
+
+## 14. Bright/dark mode
+
+> Make the page have a Bright/Dark UI mode. Control button on top right
