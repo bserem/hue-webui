@@ -5,6 +5,10 @@ plain HTML/CSS/JS, no build step, no frameworks — talks directly to the Hue
 bridge REST API on your local network. The prompts that built it are logged
 in [PROMPT_LOG.md](PROMPT_LOG.md).
 
+Hosted version (GitHub Pages): **<http://hueui.srm.gr>** — plain HTTP only.
+It does **not** work over HTTPS: the browser would block requests from an
+HTTPS page to the bridge's HTTP API as mixed content.
+
 ![Hue WebUI screenshot](HueWebUI.png)
 
 ## Features
