@@ -56,3 +56,8 @@ user prompt verbatim; the resulting work is in the matching git commits.
 ## 11. Accordion rooms
 
 > Make rooms accordions, remember open/close state
+
+## 12. Zones
+
+> Add support for zones.
+> Makes Rooms/Zones orderable.

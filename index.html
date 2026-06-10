@@ -84,6 +84,13 @@
     text-align: center;
   }
   .room > h2 .rname { cursor: pointer; user-select: none; }
+  .room > h2 .zonebadge {
+    font-size: 9px;
+    border: 1px solid #3a3f4b;
+    border-radius: 4px;
+    padding: 1px 5px;
+    opacity: 0.7;
+  }
   .room .lights.collapsed { display: none; }
   .light {
     background: var(--panel);
@@ -610,11 +617,11 @@ function orderedSort(ids, saved, nameOf) {
   });
 }
 
-// rooms (incl. "Other") with their light ids, in display order
+// rooms and zones (incl. "Other") with their light ids, in display order
 function roomList(groups, lights) {
   const rooms = Object.entries(groups)
-    .filter(([, g]) => g.type === "Room")
-    .map(([id, g]) => ({ id, name: g.name, lightIds: g.lights.filter((l) => lights[l]) }))
+    .filter(([, g]) => g.type === "Room" || g.type === "Zone")
+    .map(([id, g]) => ({ id, name: g.name, type: g.type, lightIds: g.lights.filter((l) => lights[l]) }))
     .filter((r) => r.lightIds.length > 0);
 
   const assigned = new Set(rooms.flatMap((r) => r.lightIds));
@@ -900,7 +907,9 @@ function updateLightCard(card, light) {
   }
 }
 
-const cards = new Map(); // light id -> card element
+// a light can appear in its room and in any number of zones, so cards are
+// keyed by "<group id>/<light id>"; card.dataset.id holds the light id
+const cards = new Map();
 const roomToggles = new Map(); // room id -> { cb, lightIds }
 
 async function setRoomState(roomId, lightIds, state) {
@@ -917,7 +926,10 @@ async function setRoomState(roomId, lightIds, state) {
   }
 }
 
+let renderSig = "";
+
 function render(groups, lights) {
+  renderSig = layoutSignature(groups, lights);
   const main = $("#rooms");
   main.innerHTML = "";
   cards.clear();
@@ -949,6 +961,12 @@ function render(groups, lights) {
       h.appendChild(chev);
     }
     h.appendChild(roomName);
+    if (room.type === "Zone") {
+      const badge = document.createElement("span");
+      badge.className = "zonebadge";
+      badge.textContent = "zone";
+      h.appendChild(badge);
+    }
     if (!reorderMode) {
       const t = document.createElement("label");
       t.className = "toggle";
@@ -986,7 +1004,7 @@ function render(groups, lights) {
       } else {
         el = buildLightCard(id, lights[id]);
         updateLightCard(el, lights[id]);
-        cards.set(id, el);
+        cards.set(`${room.id}/${id}`, el);
       }
       lightsWrap.appendChild(el);
     }
@@ -1036,11 +1054,14 @@ function renderSensors(sensors) {
 async function setState(id, state) {
   try {
     await api("PUT", `/lights/${id}/state`, state);
-    // optimistic local update of the card
-    const card = cards.get(id);
-    if (card && state.on !== undefined) {
-      card._cb.checked = state.on;
-      card.classList.toggle("off", !state.on);
+    // optimistic local update of every card showing this light
+    if (state.on !== undefined) {
+      for (const card of cards.values()) {
+        if (card.dataset.id === id) {
+          card._cb.checked = state.on;
+          card.classList.toggle("off", !state.on);
+        }
+      }
     }
   } catch (e) {
     showError(`Failed to update light: ${e.message}`);
@@ -1071,13 +1092,13 @@ async function refresh() {
     lastLights = lights;
     if (!Array.isArray(sensors)) renderSensors(sensors);
     $("#all-toggle").checked = Object.values(lights).some((l) => l.state.on);
-    if (!rendered || roomsChanged(lights)) {
+    if (!rendered || layoutSignature(groups, lights) !== renderSig) {
       render(groups, lights);
       rendered = true;
     } else {
-      for (const [id, light] of Object.entries(lights)) {
-        const card = cards.get(id);
-        if (card) updateLightCard(card, light);
+      for (const card of cards.values()) {
+        const light = lights[card.dataset.id];
+        if (light) updateLightCard(card, light);
       }
       for (const t of roomToggles.values()) {
         t.cb.checked = t.lightIds.some((id) => lights[id]?.state.on);
@@ -1090,10 +1111,9 @@ async function refresh() {
   }
 }
 
-function roomsChanged(lights) {
-  const ids = Object.keys(lights);
-  if (ids.length !== cards.size) return true;
-  return ids.some((id) => !cards.has(id));
+// detects added/removed/regrouped lights and rooms/zones
+function layoutSignature(groups, lights) {
+  return JSON.stringify(roomList(groups, lights).map((r) => [r.id, r.lightIds]));
 }
 
 // ---------- UI plumbing ----------
