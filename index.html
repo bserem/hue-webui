@@ -76,6 +76,7 @@
     align-items: center;
     gap: 8px;
   }
+  .room > h2 .toggle { transform: scale(0.8); transform-origin: left center; }
   .light {
     background: var(--panel);
     border-radius: var(--radius);
@@ -790,11 +791,27 @@ function updateLightCard(card, light) {
 }
 
 const cards = new Map(); // light id -> card element
+const roomToggles = new Map(); // room id -> { cb, lightIds }
+
+async function setRoomOn(roomId, lightIds, on) {
+  try {
+    if (roomId === OTHER_ROOM_ID) {
+      // no bridge group behind "Other" — switch its lights one by one
+      await Promise.all(lightIds.map((id) => api("PUT", `/lights/${id}/state`, { on })));
+    } else {
+      await api("PUT", `/groups/${roomId}/action`, { on });
+    }
+    refresh();
+  } catch (e) {
+    showError(`Failed to switch room: ${e.message}`);
+  }
+}
 
 function render(groups, lights) {
   const main = $("#rooms");
   main.innerHTML = "";
   cards.clear();
+  roomToggles.clear();
 
   if (reorderMode) {
     const hint = document.createElement("div");
@@ -810,6 +827,20 @@ function render(groups, lights) {
     const roomName = document.createElement("span");
     roomName.textContent = room.name;
     h.appendChild(roomName);
+    if (!reorderMode) {
+      const t = document.createElement("label");
+      t.className = "toggle";
+      t.title = `${room.name} on/off`;
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      const track = document.createElement("span");
+      track.className = "track";
+      t.append(cb, track);
+      cb.checked = room.lightIds.some((id) => lights[id].state.on);
+      cb.addEventListener("change", () => setRoomOn(room.id, room.lightIds, cb.checked));
+      h.appendChild(t);
+      roomToggles.set(room.id, { cb, lightIds: room.lightIds });
+    }
     if (reorderMode) {
       h.appendChild(moveButtons(
         () => moveRoom(room.id, -1),
@@ -919,6 +950,9 @@ async function refresh() {
       for (const [id, light] of Object.entries(lights)) {
         const card = cards.get(id);
         if (card) updateLightCard(card, light);
+      }
+      for (const t of roomToggles.values()) {
+        t.cb.checked = t.lightIds.some((id) => lights[id]?.state.on);
       }
     }
     $("#status").textContent =
