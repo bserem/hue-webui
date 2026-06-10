@@ -5,9 +5,13 @@ plain HTML/CSS/JS, no build step, no frameworks — talks directly to the Hue
 bridge REST API on your local network. The prompts that built it are logged
 in [PROMPT_LOG.md](PROMPT_LOG.md).
 
-Hosted version (GitHub Pages): **<http://hueui.srm.gr>** — plain HTTP only.
-It does **not** work over HTTPS: the browser would block requests from an
-HTTPS page to the bridge's HTTP API as mixed content.
+Hosted version (GitHub Pages): **<http://hueui.srm.gr>**.
+
+It also works over **HTTPS**: the page then talks to the bridge over the
+bridge's own HTTPS endpoint, which uses a self-signed certificate. You must
+accept that certificate manually once — open `https://<bridge-ip>/api/config`
+in a tab and click through the browser warning — before the UI can connect.
+Over plain HTTP no certificate step is needed.
 
 ![Hue WebUI screenshot](HueWebUI.png)
 
