@@ -29,12 +29,17 @@
     padding: 16px 20px;
     border-bottom: 1px solid #2c303a;
   }
+  header .left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  header .left .toggle { flex: 0 0 auto; }
   #sensors {
-    flex-basis: 100%;
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    margin-top: 12px;
   }
   .sensor-chip {
     background: var(--panel2);
@@ -301,13 +306,19 @@
 <body>
 
 <header>
-  <h1>💡 Hue Control</h1>
+  <div class="left">
+    <h1>💡 Hue Control</h1>
+    <label class="toggle hidden" id="all-toggle-wrap" title="All lights on/off">
+      <input type="checkbox" id="all-toggle">
+      <span class="track"></span>
+    </label>
+    <div id="sensors" class="hidden"></div>
+  </div>
   <div class="right">
     <span class="status" id="status"></span>
     <button class="iconbtn" id="reorder-btn" title="Reorder rooms and lights">⇅</button>
     <button class="iconbtn" id="settings-btn" title="Settings">⚙</button>
   </div>
-  <div id="sensors" class="hidden"></div>
 </header>
 
 <div id="error-banner" class="hidden"></div>
@@ -877,6 +888,7 @@ async function refresh() {
     lastGroups = groups;
     lastLights = lights;
     if (!Array.isArray(sensors)) renderSensors(sensors);
+    $("#all-toggle").checked = Object.values(lights).some((l) => l.state.on);
     if (!rendered || roomsChanged(lights)) {
       render(groups, lights);
       rendered = true;
@@ -918,6 +930,7 @@ function showPairing() {
   $("#reorder-btn").classList.add("hidden");
   $("#settings-btn").classList.add("hidden");
   $("#sensors").classList.add("hidden");
+  $("#all-toggle-wrap").classList.add("hidden");
   clearInterval(refreshTimer);
 }
 
@@ -926,6 +939,7 @@ function start() {
   $("#rooms").classList.remove("hidden");
   $("#reorder-btn").classList.remove("hidden");
   $("#settings-btn").classList.remove("hidden");
+  $("#all-toggle-wrap").classList.remove("hidden");
   refresh();
   clearInterval(refreshTimer);
   refreshTimer = setInterval(refresh, REFRESH_MS);
@@ -994,6 +1008,16 @@ $("#reorder-btn").addEventListener("click", () => {
   closeSettings();
   if (lastGroups && lastLights) render(lastGroups, lastLights);
   if (!reorderMode) refresh();
+});
+
+// master switch: group 0 addresses every light on the bridge
+$("#all-toggle").addEventListener("change", async (e) => {
+  try {
+    await api("PUT", "/groups/0/action", { on: e.target.checked });
+    refresh();
+  } catch (err) {
+    showError(`Failed to switch all lights: ${err.message}`);
+  }
 });
 
 $("#pair-btn").addEventListener("click", pair);
