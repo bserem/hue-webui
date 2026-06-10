@@ -155,7 +155,15 @@
     border: none;
   }
   input[type="range"].ct {
-    background: linear-gradient(to right, #cfe3ff, #fff4e0, #ff9d3c);
+    background: linear-gradient(to right, #ff9d3c, #fff4e0, #cfe3ff);
+  }
+  .ctwrap .kelvin {
+    font-size: 11px;
+    color: var(--muted);
+    margin-left: 8px;
+    min-width: 44px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
   }
   input[type="color"] {
     grid-area: color;
@@ -696,17 +704,28 @@ function buildLightCard(id, light) {
     const ct = document.createElement("input");
     ct.type = "range";
     ct.className = "ct";
-    ct.min = light.capabilities?.control?.ct?.min ?? 153;
-    ct.max = light.capabilities?.control?.ct?.max ?? 454;
+    // slider works in kelvin (K = 1e6 / mired); bridge min mired = coolest
+    const miredMin = light.capabilities?.control?.ct?.min ?? 153;
+    const miredMax = light.capabilities?.control?.ct?.max ?? 454;
+    ct.min = Math.ceil(1e6 / miredMax / 100) * 100;
+    ct.max = Math.floor(1e6 / miredMin / 100) * 100;
+    ct.step = 100;
     ct.title = "Color temperature";
-    ct.addEventListener("input", debounce(() => {
-      setState(id, { on: true, ct: Number(ct.value) });
-    }, 200));
+    const kelvin = document.createElement("span");
+    kelvin.className = "kelvin";
+    const send = debounce(() => {
+      setState(id, { on: true, ct: Math.round(1e6 / Number(ct.value)) });
+    }, 200);
+    ct.addEventListener("input", () => {
+      kelvin.textContent = `${ct.value} K`;
+      send();
+    });
     ct.addEventListener("pointerdown", () => interacting++);
     ct.addEventListener("pointerup", () => { if (interacting > 0) interacting--; });
-    wrap.appendChild(ct);
+    wrap.append(ct, kelvin);
     card.appendChild(wrap);
     card._ct = ct;
+    card._kelvin = kelvin;
   }
 
   // brightness slider
@@ -763,7 +782,11 @@ function updateLightCard(card, light) {
   card._dot.style.boxShadow = s.on ? `0 0 10px ${lightDisplayColor(s)}` : "none";
   if (card._bri && s.bri !== undefined) card._bri.value = s.bri;
   if (card._picker && s.hue !== undefined) card._picker.value = hueSatToHex(s.hue, s.sat);
-  if (card._ct && s.ct !== undefined) card._ct.value = s.ct;
+  if (card._ct && s.ct) {
+    const k = Math.round(1e6 / s.ct / 100) * 100;
+    card._ct.value = k;
+    card._kelvin.textContent = `${k} K`;
+  }
 }
 
 const cards = new Map(); // light id -> card element
