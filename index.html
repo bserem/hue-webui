@@ -23,11 +23,27 @@
   }
   header {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     padding: 16px 20px;
     border-bottom: 1px solid #2c303a;
   }
+  #sensors {
+    flex-basis: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .sensor-chip {
+    background: var(--panel2);
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .sensor-chip b { color: var(--text); font-weight: 500; margin-right: 4px; }
   header h1 { font-size: 18px; margin: 0; font-weight: 600; }
   header .right { display: flex; align-items: center; gap: 12px; }
   header .status { font-size: 12px; color: var(--muted); }
@@ -291,6 +307,7 @@
     <button class="iconbtn" id="reorder-btn" title="Reorder rooms and lights">⇅</button>
     <button class="iconbtn" id="settings-btn" title="Settings">⚙</button>
   </div>
+  <div id="sensors" class="hidden"></div>
 </header>
 
 <div id="error-banner" class="hidden"></div>
@@ -785,6 +802,42 @@ function render(groups, lights) {
   }
 }
 
+// ---------- sensors ----------
+
+// Hue motion sensors are three bridge sensors sharing one device MAC
+// (uniqueid prefix): ZLLPresence (carries the user-given name),
+// ZLLTemperature (0.01 °C) and ZLLLightLevel (10000*log10(lux)+1).
+function renderSensors(sensors) {
+  const el = $("#sensors");
+  const devices = new Map();
+  for (const s of Object.values(sensors)) {
+    if (!s.uniqueid || !s.type.startsWith("ZLL")) continue;
+    const mac = s.uniqueid.split("-")[0];
+    if (!devices.has(mac)) devices.set(mac, {});
+    const d = devices.get(mac);
+    if (s.type === "ZLLPresence") d.name = s.name;
+    else if (s.type === "ZLLTemperature") d.temp = s.state.temperature;
+    else if (s.type === "ZLLLightLevel") d.light = s.state.lightlevel;
+  }
+  const chips = [];
+  for (const d of devices.values()) {
+    const parts = [];
+    if (d.temp != null) parts.push(`${(d.temp / 100).toFixed(1)} °C`);
+    if (d.light != null) parts.push(`${Math.round(10 ** ((d.light - 1) / 10000))} lx`);
+    if (parts.length) chips.push({ name: d.name || "Sensor", text: parts.join(" · ") });
+  }
+  chips.sort((a, b) => a.name.localeCompare(b.name));
+  el.replaceChildren(...chips.map((c) => {
+    const chip = document.createElement("span");
+    chip.className = "sensor-chip";
+    const b = document.createElement("b");
+    b.textContent = c.name;
+    chip.append(b, c.text);
+    return chip;
+  }));
+  el.classList.toggle("hidden", chips.length === 0);
+}
+
 // ---------- state ----------
 
 async function setState(id, state) {
@@ -806,9 +859,10 @@ let rendered = false;
 async function refresh() {
   if (interacting > 0 || reorderMode) return;
   try {
-    const [lights, groups] = await Promise.all([
+    const [lights, groups, sensors] = await Promise.all([
       api("GET", "/lights"),
       api("GET", "/groups"),
+      api("GET", "/sensors"),
     ]);
     if (Array.isArray(lights) && lights[0] && lights[0].error) {
       if (lights[0].error.type === 1) { // unauthorized — key revoked
@@ -822,6 +876,7 @@ async function refresh() {
     hideError();
     lastGroups = groups;
     lastLights = lights;
+    if (!Array.isArray(sensors)) renderSensors(sensors);
     if (!rendered || roomsChanged(lights)) {
       render(groups, lights);
       rendered = true;
@@ -862,6 +917,7 @@ function showPairing() {
   $("#pair").classList.remove("hidden");
   $("#reorder-btn").classList.add("hidden");
   $("#settings-btn").classList.add("hidden");
+  $("#sensors").classList.add("hidden");
   clearInterval(refreshTimer);
 }
 
