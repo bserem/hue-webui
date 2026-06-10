@@ -48,6 +48,10 @@ in [PROMPT_LOG.md](PROMPT_LOG.md).
 - Custom room/light order lives in this browser's `localStorage`; renames
   are written to the bridge itself.
 
+## License
+
+[MIT](LICENSE)
+
 ## Why?
 Because I wanted something like this for years and never had the time to make it.
 Every other option was fragile, dependency heave, deprecated, abandoned etc.
