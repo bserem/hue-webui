@@ -359,7 +359,10 @@
 
 <div id="pair" class="card hidden">
   <h2>Connect to Hue Bridge</h2>
-  <p>Press the <strong>link button</strong> on your Hue bridge (192.168.2.2), then click below within 30 seconds.</p>
+  <p>Press the <strong>link button</strong> on your Hue bridge, then click below within 30 seconds.</p>
+  <div class="keyrow" style="margin-bottom: 16px">
+    <input type="text" id="pair-ip-input" placeholder="Bridge IP" spellcheck="false">
+  </div>
   <button class="primary" id="pair-btn">Pair with Bridge</button>
   <div class="divider">or use an existing key</div>
   <div class="keyrow">
@@ -372,6 +375,13 @@
 <div id="settings" class="hidden">
   <div class="inner">
     <h2>Settings</h2>
+    <section>
+      <label>Bridge IP</label>
+      <div class="keyrow">
+        <input type="text" id="ip-input" placeholder="192.168.x.x" spellcheck="false">
+        <button class="secondary" id="ip-set-btn">Save</button>
+      </div>
+    </section>
     <section>
       <label>App key (use this to connect from another browser)</label>
       <div id="key-display">••••••••••••••••••••••••••••••••</div>
@@ -396,14 +406,15 @@
 <script>
 "use strict";
 
-const BRIDGE_IP = "192.168.2.2";
-const API_ROOT = `http://${BRIDGE_IP}/api`;
+const DEFAULT_BRIDGE_IP = "192.168.2.2";
+const IP_STORAGE = "hue-bridge-ip";
 const KEY_STORAGE = "hue-app-key";
 const ROOM_ORDER_STORAGE = "hue-room-order";
 const LIGHT_ORDER_STORAGE = "hue-light-order";
 const OTHER_ROOM_ID = "__other";
 const REFRESH_MS = 5000;
 
+let bridgeIp = localStorage.getItem(IP_STORAGE) || DEFAULT_BRIDGE_IP;
 let appKey = localStorage.getItem(KEY_STORAGE);
 let refreshTimer = null;
 let interacting = 0; // >0 while user is dragging a slider; pause refresh
@@ -416,11 +427,31 @@ const $ = (sel) => document.querySelector(sel);
 // ---------- API ----------
 
 async function api(method, path, body) {
-  const res = await fetch(`${API_ROOT}/${appKey}${path}`, {
+  const res = await fetch(`http://${bridgeIp}/api/${appKey}${path}`, {
     method,
     body: body ? JSON.stringify(body) : undefined,
   });
   return res.json();
+}
+
+async function saveBridgeIp(ip, msgEl) {
+  ip = ip.trim();
+  if (!ip || ip === bridgeIp) return true;
+  msgEl.classList.remove("err");
+  msgEl.textContent = "Checking bridge…";
+  try {
+    const res = await fetch(`http://${ip}/api/config`); // unauthenticated endpoint
+    const cfg = await res.json();
+    if (!cfg.bridgeid) throw new Error("Not a Hue bridge");
+    bridgeIp = ip;
+    localStorage.setItem(IP_STORAGE, ip);
+    msgEl.textContent = `Found bridge "${cfg.name}".`;
+    return true;
+  } catch (e) {
+    msgEl.classList.add("err");
+    msgEl.textContent = `No bridge at ${ip}: ${e.message}`;
+    return false;
+  }
 }
 
 // PUT to /lights/<id> or /groups/<id>; bridge answers [{success|error}]
@@ -431,7 +462,7 @@ async function rename(path, name) {
 }
 
 async function validateKey(key) {
-  const res = await fetch(`${API_ROOT}/${key}/lights`);
+  const res = await fetch(`http://${bridgeIp}/api/${key}/lights`);
   const data = await res.json();
   if (Array.isArray(data) && data[0] && data[0].error) {
     throw new Error(data[0].error.description || "Key rejected by bridge");
@@ -461,10 +492,14 @@ async function pair() {
   const btn = $("#pair-btn");
   const msg = $("#pair-msg");
   btn.disabled = true;
+  if (!(await saveBridgeIp($("#pair-ip-input").value, msg))) {
+    btn.disabled = false;
+    return;
+  }
   msg.classList.remove("err");
   msg.textContent = "Pairing…";
   try {
-    const res = await fetch(API_ROOT, {
+    const res = await fetch(`http://${bridgeIp}/api`, {
       method: "POST",
       body: JSON.stringify({ devicetype: "hueui#browser" }),
     });
@@ -1014,7 +1049,7 @@ async function refresh() {
     $("#status").textContent =
       `${Object.keys(lights).length} lights · ${new Date().toLocaleTimeString()}`;
   } catch (e) {
-    showError(`Bridge unreachable at ${BRIDGE_IP}: ${e.message}`);
+    showError(`Bridge unreachable at ${bridgeIp}: ${e.message}`);
   }
 }
 
@@ -1037,6 +1072,7 @@ function hideError() {
 
 function showPairing() {
   rendered = false;
+  $("#pair-ip-input").value = bridgeIp;
   $("#rooms").classList.add("hidden");
   $("#settings").classList.add("hidden");
   $("#pair").classList.remove("hidden");
@@ -1074,6 +1110,7 @@ function openSettings() {
   renderKeyDisplay();
   $("#settings-msg").textContent = "";
   $("#key-input").value = "";
+  $("#ip-input").value = bridgeIp;
   $("#settings").classList.remove("hidden");
   $("#rooms").classList.add("hidden");
 }
@@ -1107,9 +1144,18 @@ $("#key-copy-btn").addEventListener("click", async () => {
 });
 
 $("#key-set-btn").addEventListener("click", () => adoptKey($("#key-input").value, $("#settings-msg")));
-$("#pair-key-btn").addEventListener("click", () => adoptKey($("#pair-key-input").value, $("#pair-msg")));
+
+$("#ip-set-btn").addEventListener("click", async () => {
+  if (await saveBridgeIp($("#ip-input").value, $("#settings-msg"))) refresh();
+});
+
+async function pairWithKey() {
+  if (!(await saveBridgeIp($("#pair-ip-input").value, $("#pair-msg")))) return;
+  adoptKey($("#pair-key-input").value, $("#pair-msg"));
+}
+$("#pair-key-btn").addEventListener("click", pairWithKey);
 $("#pair-key-input").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") adoptKey($("#pair-key-input").value, $("#pair-msg"));
+  if (e.key === "Enter") pairWithKey();
 });
 
 // reorder mode
