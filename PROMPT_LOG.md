@@ -52,3 +52,7 @@ user prompt verbatim; the resulting work is in the matching git commits.
 ## 10. Configurable bridge IP
 
 > Make the bridge IP configurable
+
+## 11. Accordion rooms
+
+> Make rooms accordions, remember open/close state

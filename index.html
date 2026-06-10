@@ -77,6 +77,14 @@
     gap: 8px;
   }
   .room > h2 .toggle { transform: scale(0.8); transform-origin: left center; }
+  .room > h2 .chev {
+    cursor: pointer;
+    user-select: none;
+    width: 14px;
+    text-align: center;
+  }
+  .room > h2 .rname { cursor: pointer; user-select: none; }
+  .room .lights.collapsed { display: none; }
   .light {
     background: var(--panel);
     border-radius: var(--radius);
@@ -625,6 +633,20 @@ function roomList(groups, lights) {
   });
 }
 
+const COLLAPSED_STORAGE = "hue-collapsed-rooms";
+
+function collapsedRooms() {
+  return new Set(loadJSON(COLLAPSED_STORAGE, []));
+}
+
+function toggleRoomCollapsed(roomId) {
+  const set = collapsedRooms();
+  if (set.has(roomId)) set.delete(roomId);
+  else set.add(roomId);
+  localStorage.setItem(COLLAPSED_STORAGE, JSON.stringify([...set]));
+  render(lastGroups, lastLights);
+}
+
 function moveRoom(roomId, dir) {
   const ids = roomList(lastGroups, lastLights).map((r) => r.id);
   const i = ids.indexOf(roomId);
@@ -908,12 +930,24 @@ function render(groups, lights) {
     main.appendChild(hint);
   }
 
+  const collapsed = reorderMode ? new Set() : collapsedRooms();
+
   for (const room of roomList(groups, lights)) {
+    const isCollapsed = collapsed.has(room.id);
     const section = document.createElement("section");
     section.className = "room";
     const h = document.createElement("h2");
     const roomName = document.createElement("span");
+    roomName.className = "rname";
     roomName.textContent = room.name;
+    if (!reorderMode) {
+      const chev = document.createElement("span");
+      chev.className = "chev";
+      chev.textContent = isCollapsed ? "▸" : "▾";
+      chev.addEventListener("click", () => toggleRoomCollapsed(room.id));
+      roomName.addEventListener("click", () => toggleRoomCollapsed(room.id));
+      h.appendChild(chev);
+    }
     h.appendChild(roomName);
     if (!reorderMode) {
       const t = document.createElement("label");
@@ -943,6 +977,8 @@ function render(groups, lights) {
       ));
     }
     section.appendChild(h);
+    const lightsWrap = document.createElement("div");
+    lightsWrap.className = "lights" + (isCollapsed ? " collapsed" : "");
     for (const id of room.lightIds) {
       let el;
       if (reorderMode) {
@@ -952,8 +988,9 @@ function render(groups, lights) {
         updateLightCard(el, lights[id]);
         cards.set(id, el);
       }
-      section.appendChild(el);
+      lightsWrap.appendChild(el);
     }
+    section.appendChild(lightsWrap);
     main.appendChild(section);
   }
 }
