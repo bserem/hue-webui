@@ -165,6 +165,19 @@
   }
   .movebtns button:hover { background: #323744; }
   .movebtns button:disabled { opacity: 0.3; cursor: default; }
+  input.rename {
+    background: var(--bg);
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 4px 8px;
+    font-size: inherit;
+    font-family: inherit;
+    text-transform: none;
+    letter-spacing: normal;
+    width: 100%;
+    max-width: 280px;
+  }
   #reorder-hint {
     background: var(--panel2);
     border-radius: var(--radius);
@@ -346,6 +359,13 @@ async function api(method, path, body) {
     body: body ? JSON.stringify(body) : undefined,
   });
   return res.json();
+}
+
+// PUT to /lights/<id> or /groups/<id>; bridge answers [{success|error}]
+async function rename(path, name) {
+  const res = await api("PUT", path, { name });
+  const err = Array.isArray(res) && res.find((r) => r.error);
+  if (err) throw new Error(err.error.description);
 }
 
 async function validateKey(key) {
@@ -552,9 +572,16 @@ function debounce(fn, ms) {
   };
 }
 
-function moveButtons(onUp, onDown) {
+function moveButtons(onUp, onDown, onRename) {
   const wrap = document.createElement("span");
   wrap.className = "movebtns";
+  if (onRename) {
+    const edit = document.createElement("button");
+    edit.textContent = "✏";
+    edit.title = "Rename";
+    edit.addEventListener("click", onRename);
+    wrap.appendChild(edit);
+  }
   const up = document.createElement("button");
   up.textContent = "↑";
   up.addEventListener("click", onUp);
@@ -563,6 +590,38 @@ function moveButtons(onUp, onDown) {
   down.addEventListener("click", onDown);
   wrap.append(up, down);
   return wrap;
+}
+
+// swap nameEl content for a text input; Enter/blur saves, Escape cancels
+function startRename(nameEl, currentName, save) {
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "rename";
+  input.value = currentName;
+  input.maxLength = 32; // bridge limit
+  nameEl.replaceChildren(input);
+  input.focus();
+  input.select();
+  let done = false;
+  const finish = async (commit) => {
+    if (done) return;
+    done = true;
+    const newName = input.value.trim();
+    if (commit && newName && newName !== currentName) {
+      try {
+        await save(newName);
+        hideError();
+      } catch (e) {
+        showError(`Rename failed: ${e.message}`);
+      }
+    }
+    render(lastGroups, lastLights);
+  };
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") finish(true);
+    else if (e.key === "Escape") finish(false);
+  });
+  input.addEventListener("blur", () => finish(true));
 }
 
 function buildLightCard(id, light) {
@@ -659,6 +718,10 @@ function buildReorderRow(roomId, lightId, light) {
   row.appendChild(moveButtons(
     () => moveLight(roomId, lightId, -1),
     () => moveLight(roomId, lightId, +1),
+    () => startRename(name, light.name, async (newName) => {
+      await rename(`/lights/${lightId}`, newName);
+      lastLights[lightId].name = newName;
+    }),
   ));
   return row;
 }
@@ -685,7 +748,7 @@ function render(groups, lights) {
   if (reorderMode) {
     const hint = document.createElement("div");
     hint.id = "reorder-hint";
-    hint.textContent = "Reorder mode — use the arrows to move rooms and lights, then press ⇅ again to finish. Order is saved in this browser.";
+    hint.textContent = "Edit mode — use the arrows to move rooms and lights, ✏ to rename, then press ⇅ again to finish. Order is saved in this browser; names are saved on the bridge.";
     main.appendChild(hint);
   }
 
@@ -693,11 +756,17 @@ function render(groups, lights) {
     const section = document.createElement("section");
     section.className = "room";
     const h = document.createElement("h2");
-    h.textContent = room.name;
+    const roomName = document.createElement("span");
+    roomName.textContent = room.name;
+    h.appendChild(roomName);
     if (reorderMode) {
       h.appendChild(moveButtons(
         () => moveRoom(room.id, -1),
         () => moveRoom(room.id, +1),
+        room.id === OTHER_ROOM_ID ? null : () => startRename(roomName, room.name, async (newName) => {
+          await rename(`/groups/${room.id}`, newName);
+          lastGroups[room.id].name = newName;
+        }),
       ));
     }
     section.appendChild(h);
