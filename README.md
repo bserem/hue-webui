@@ -5,6 +5,8 @@ plain HTML/CSS/JS, no build step, no frameworks — talks directly to the Hue
 bridge REST API on your local network. The prompts that built it are logged
 in [PROMPT_LOG.md](PROMPT_LOG.md).
 
+![Hue WebUI screenshot](HueWebUI.png)
+
 ## Features
 
 - **Pairing** — set the bridge IP, press the bridge link button and pair, or
