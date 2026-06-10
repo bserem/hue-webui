@@ -84,7 +84,11 @@
     margin-bottom: 8px;
     display: grid;
     grid-template-columns: 18px 1fr auto auto;
-    grid-template-areas: "dot name color toggle" "dot bri bri bri";
+    grid-template-areas:
+      "dot name color toggle"
+      "dot bri bri bri"
+      "dot ct ct ct"
+      "dot presets presets presets";
     gap: 6px 12px;
     align-items: center;
     transition: opacity 0.2s;
@@ -175,8 +179,29 @@
     background: none;
     cursor: pointer;
   }
-  .ctwrap { grid-area: color; display: flex; align-items: center; }
-  .ctwrap input { width: 90px; }
+  .ctwrap {
+    grid-area: ct;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .ctwrap input { flex: 1; }
+  .presets { grid-area: presets; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+  .presets button {
+    background: var(--panel2);
+    color: var(--muted);
+    border: none;
+    border-radius: 6px;
+    padding: 4px 9px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .presets button:hover { background: #323744; color: var(--text); }
+  .room > h2 { flex-wrap: wrap; }
+  .room > h2 .presets { margin-left: auto; margin-top: 0; }
 
   /* reorder mode */
   .reorder-row {
@@ -589,6 +614,31 @@ function moveLight(roomId, lightId, dir) {
   render(lastGroups, lastLights);
 }
 
+// ---------- presets ----------
+
+// white-light recipes (mireds), ordered by kelvin warm → cool
+const PRESETS = [
+  { name: "Rest",        ct: 454, bri: 77 },   // 2200 K, dim
+  { name: "Relax",       ct: 447, bri: 144 },  // 2250 K
+  { name: "Bright",      ct: 370, bri: 254 },  // 2700 K
+  { name: "Read",        ct: 346, bri: 254 },  // 2900 K
+  { name: "Concentrate", ct: 233, bri: 254 },  // 4300 K
+  { name: "Cool bright", ct: 153, bri: 254 },  // 6500 K
+];
+
+function presetButtons(apply) {
+  const wrap = document.createElement("div");
+  wrap.className = "presets";
+  for (const p of PRESETS) {
+    const b = document.createElement("button");
+    b.textContent = p.name;
+    b.title = `${Math.round(1e6 / p.ct / 100) * 100} K`;
+    b.addEventListener("click", () => apply({ on: true, ct: p.ct, bri: p.bri }));
+    wrap.appendChild(b);
+  }
+  return wrap;
+}
+
 // ---------- rendering ----------
 
 function supportsColor(light) {
@@ -699,7 +749,9 @@ function buildLightCard(id, light) {
     picker.addEventListener("change", () => { if (interacting > 0) interacting--; });
     card.appendChild(picker);
     card._picker = picker;
-  } else if (supportsCT(light)) {
+  }
+  // CT slider for ambiance and color lamps alike (white mode)
+  if (supportsCT(light)) {
     const wrap = document.createElement("div");
     wrap.className = "ctwrap";
     const ct = document.createElement("input");
@@ -727,6 +779,7 @@ function buildLightCard(id, light) {
     card.appendChild(wrap);
     card._ct = ct;
     card._kelvin = kelvin;
+    card.appendChild(presetButtons((state) => setState(id, state)));
   }
 
   // brightness slider
@@ -793,13 +846,13 @@ function updateLightCard(card, light) {
 const cards = new Map(); // light id -> card element
 const roomToggles = new Map(); // room id -> { cb, lightIds }
 
-async function setRoomOn(roomId, lightIds, on) {
+async function setRoomState(roomId, lightIds, state) {
   try {
     if (roomId === OTHER_ROOM_ID) {
-      // no bridge group behind "Other" — switch its lights one by one
-      await Promise.all(lightIds.map((id) => api("PUT", `/lights/${id}/state`, { on })));
+      // no bridge group behind "Other" — address its lights one by one
+      await Promise.all(lightIds.map((id) => api("PUT", `/lights/${id}/state`, state)));
     } else {
-      await api("PUT", `/groups/${roomId}/action`, { on });
+      await api("PUT", `/groups/${roomId}/action`, state);
     }
     refresh();
   } catch (e) {
@@ -837,9 +890,12 @@ function render(groups, lights) {
       track.className = "track";
       t.append(cb, track);
       cb.checked = room.lightIds.some((id) => lights[id].state.on);
-      cb.addEventListener("change", () => setRoomOn(room.id, room.lightIds, cb.checked));
+      cb.addEventListener("change", () => setRoomState(room.id, room.lightIds, { on: cb.checked }));
       h.appendChild(t);
       roomToggles.set(room.id, { cb, lightIds: room.lightIds });
+      if (room.lightIds.some((id) => supportsCT(lights[id]))) {
+        h.appendChild(presetButtons((state) => setRoomState(room.id, room.lightIds, state)));
+      }
     }
     if (reorderMode) {
       h.appendChild(moveButtons(
