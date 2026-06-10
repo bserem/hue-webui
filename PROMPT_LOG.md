@@ -61,3 +61,11 @@ user prompt verbatim; the resulting work is in the matching git commits.
 
 > Add support for zones.
 > Makes Rooms/Zones orderable.
+
+## 13. Redesign
+
+> /document-skills:frontend-design
+
+Follow-up fix during review:
+
+> the room toggles don't update the light toggles now
