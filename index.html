@@ -29,7 +29,18 @@
     border-bottom: 1px solid #2c303a;
   }
   header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  header .right { display: flex; align-items: center; gap: 12px; }
   header .status { font-size: 12px; color: var(--muted); }
+  .iconbtn {
+    background: var(--panel2);
+    color: var(--text);
+    border: none;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 15px;
+    cursor: pointer;
+  }
+  .iconbtn:hover { background: #323744; }
   main { max-width: 760px; margin: 0 auto; padding: 16px; }
 
   .room { margin-bottom: 24px; }
@@ -40,6 +51,9 @@
     color: var(--muted);
     margin: 0 0 8px 4px;
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
   .light {
     background: var(--panel);
@@ -134,8 +148,34 @@
   .ctwrap { grid-area: color; display: flex; align-items: center; }
   .ctwrap input { width: 90px; }
 
-  /* pairing screen */
-  #pair {
+  /* reorder mode */
+  .reorder-row {
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "name move";
+  }
+  .movebtns { grid-area: move; display: flex; gap: 6px; }
+  .movebtns button, .room h2 .movebtns button {
+    background: var(--panel2);
+    color: var(--text);
+    border: none;
+    border-radius: 6px;
+    width: 32px; height: 28px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .movebtns button:hover { background: #323744; }
+  .movebtns button:disabled { opacity: 0.3; cursor: default; }
+  #reorder-hint {
+    background: var(--panel2);
+    border-radius: var(--radius);
+    padding: 10px 16px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  /* cards / panels */
+  .card {
     max-width: 420px;
     margin: 80px auto;
     background: var(--panel);
@@ -143,9 +183,9 @@
     padding: 32px;
     text-align: center;
   }
-  #pair h2 { margin-top: 0; }
-  #pair p { color: var(--muted); line-height: 1.5; }
-  #pair button {
+  .card h2 { margin-top: 0; }
+  .card p { color: var(--muted); line-height: 1.5; }
+  button.primary {
     background: var(--accent);
     color: #1a1206;
     border: none;
@@ -155,9 +195,70 @@
     font-weight: 600;
     cursor: pointer;
   }
-  #pair button:disabled { opacity: 0.5; cursor: wait; }
-  #pair .msg { margin-top: 16px; font-size: 14px; min-height: 20px; }
-  #pair .msg.err { color: #ff7b72; }
+  button.primary:disabled { opacity: 0.5; cursor: wait; }
+  button.secondary {
+    background: var(--panel2);
+    color: var(--text);
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  button.secondary:hover { background: #323744; }
+  .msg { margin-top: 16px; font-size: 14px; min-height: 20px; }
+  .msg.err { color: #ff7b72; }
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--muted);
+    font-size: 12px;
+    margin: 24px 0 16px;
+  }
+  .divider::before, .divider::after {
+    content: "";
+    flex: 1;
+    border-top: 1px solid #2c303a;
+  }
+  input[type="text"], input[type="password"] {
+    background: var(--bg);
+    border: 1px solid #3a3f4b;
+    border-radius: 8px;
+    color: var(--text);
+    padding: 10px 12px;
+    font-size: 14px;
+    width: 100%;
+  }
+  .keyrow { display: flex; gap: 8px; margin-top: 8px; }
+  .keyrow input { flex: 1; }
+
+  /* settings */
+  #settings {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 16px;
+  }
+  #settings .inner {
+    background: var(--panel);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+  #settings h2 { font-size: 15px; margin: 0 0 16px; }
+  #settings section { margin-bottom: 20px; }
+  #settings section:last-child { margin-bottom: 0; }
+  #settings label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 6px; }
+  #key-display {
+    font-family: ui-monospace, monospace;
+    font-size: 13px;
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 10px 12px;
+    word-break: break-all;
+    user-select: all;
+  }
+  #settings .btnrow { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  #settings .msg { margin-top: 8px; }
 
   .hidden { display: none !important; }
   #error-banner {
@@ -172,16 +273,47 @@
 
 <header>
   <h1>💡 Hue Control</h1>
-  <span class="status" id="status"></span>
+  <div class="right">
+    <span class="status" id="status"></span>
+    <button class="iconbtn" id="reorder-btn" title="Reorder rooms and lights">⇅</button>
+    <button class="iconbtn" id="settings-btn" title="Settings">⚙</button>
+  </div>
 </header>
 
 <div id="error-banner" class="hidden"></div>
 
-<div id="pair" class="hidden">
+<div id="pair" class="card hidden">
   <h2>Connect to Hue Bridge</h2>
   <p>Press the <strong>link button</strong> on your Hue bridge (192.168.2.2), then click below within 30 seconds.</p>
-  <button id="pair-btn">Pair with Bridge</button>
+  <button class="primary" id="pair-btn">Pair with Bridge</button>
+  <div class="divider">or use an existing key</div>
+  <div class="keyrow">
+    <input type="text" id="pair-key-input" placeholder="Paste app key" spellcheck="false">
+    <button class="secondary" id="pair-key-btn">Use key</button>
+  </div>
   <div class="msg" id="pair-msg"></div>
+</div>
+
+<div id="settings" class="hidden">
+  <div class="inner">
+    <h2>Settings</h2>
+    <section>
+      <label>App key (use this to connect from another browser)</label>
+      <div id="key-display">••••••••••••••••••••••••••••••••</div>
+      <div class="btnrow">
+        <button class="secondary" id="key-show-btn">Show</button>
+        <button class="secondary" id="key-copy-btn">Copy</button>
+      </div>
+    </section>
+    <section>
+      <label>Replace app key</label>
+      <div class="keyrow">
+        <input type="text" id="key-input" placeholder="Paste app key" spellcheck="false">
+        <button class="secondary" id="key-set-btn">Use key</button>
+      </div>
+      <div class="msg" id="settings-msg"></div>
+    </section>
+  </div>
 </div>
 
 <main id="rooms" class="hidden"></main>
@@ -192,11 +324,17 @@
 const BRIDGE_IP = "192.168.2.2";
 const API_ROOT = `http://${BRIDGE_IP}/api`;
 const KEY_STORAGE = "hue-app-key";
+const ROOM_ORDER_STORAGE = "hue-room-order";
+const LIGHT_ORDER_STORAGE = "hue-light-order";
+const OTHER_ROOM_ID = "__other";
 const REFRESH_MS = 5000;
 
 let appKey = localStorage.getItem(KEY_STORAGE);
 let refreshTimer = null;
 let interacting = 0; // >0 while user is dragging a slider; pause refresh
+let reorderMode = false;
+let lastGroups = null;
+let lastLights = null;
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -208,6 +346,33 @@ async function api(method, path, body) {
     body: body ? JSON.stringify(body) : undefined,
   });
   return res.json();
+}
+
+async function validateKey(key) {
+  const res = await fetch(`${API_ROOT}/${key}/lights`);
+  const data = await res.json();
+  if (Array.isArray(data) && data[0] && data[0].error) {
+    throw new Error(data[0].error.description || "Key rejected by bridge");
+  }
+  return true;
+}
+
+async function adoptKey(key, msgEl) {
+  key = key.trim();
+  if (!key) return;
+  msgEl.classList.remove("err");
+  msgEl.textContent = "Checking key…";
+  try {
+    await validateKey(key);
+    appKey = key;
+    localStorage.setItem(KEY_STORAGE, key);
+    msgEl.textContent = "Key accepted.";
+    closeSettings();
+    start();
+  } catch (e) {
+    msgEl.classList.add("err");
+    msgEl.textContent = `Failed: ${e.message}`;
+  }
 }
 
 async function pair() {
@@ -299,6 +464,74 @@ function lightDisplayColor(state) {
   return "#ffe9c4";
 }
 
+// ---------- ordering ----------
+
+function loadJSON(key, fallback) {
+  try {
+    return JSON.parse(localStorage.getItem(key)) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+// saved order first, unknown ids appended sorted by name
+function orderedSort(ids, saved, nameOf) {
+  return ids.slice().sort((a, b) => {
+    const ia = saved.indexOf(a), ib = saved.indexOf(b);
+    if (ia !== -1 && ib !== -1) return ia - ib;
+    if (ia !== -1) return -1;
+    if (ib !== -1) return 1;
+    return nameOf(a).localeCompare(nameOf(b));
+  });
+}
+
+// rooms (incl. "Other") with their light ids, in display order
+function roomList(groups, lights) {
+  const rooms = Object.entries(groups)
+    .filter(([, g]) => g.type === "Room")
+    .map(([id, g]) => ({ id, name: g.name, lightIds: g.lights.filter((l) => lights[l]) }))
+    .filter((r) => r.lightIds.length > 0);
+
+  const assigned = new Set(rooms.flatMap((r) => r.lightIds));
+  const orphans = Object.keys(lights).filter((id) => !assigned.has(id));
+  if (orphans.length) rooms.push({ id: OTHER_ROOM_ID, name: "Other", lightIds: orphans });
+
+  const roomOrder = loadJSON(ROOM_ORDER_STORAGE, []);
+  const byId = new Map(rooms.map((r) => [r.id, r]));
+  const sortedIds = orderedSort([...byId.keys()], roomOrder, (id) => byId.get(id).name);
+
+  const lightOrders = loadJSON(LIGHT_ORDER_STORAGE, {});
+  return sortedIds.map((id) => {
+    const r = byId.get(id);
+    r.lightIds = orderedSort(r.lightIds, lightOrders[r.id] || [], (l) => lights[l].name);
+    return r;
+  });
+}
+
+function moveRoom(roomId, dir) {
+  const ids = roomList(lastGroups, lastLights).map((r) => r.id);
+  const i = ids.indexOf(roomId);
+  const j = i + dir;
+  if (i === -1 || j < 0 || j >= ids.length) return;
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+  localStorage.setItem(ROOM_ORDER_STORAGE, JSON.stringify(ids));
+  render(lastGroups, lastLights);
+}
+
+function moveLight(roomId, lightId, dir) {
+  const room = roomList(lastGroups, lastLights).find((r) => r.id === roomId);
+  if (!room) return;
+  const ids = room.lightIds;
+  const i = ids.indexOf(lightId);
+  const j = i + dir;
+  if (i === -1 || j < 0 || j >= ids.length) return;
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+  const lightOrders = loadJSON(LIGHT_ORDER_STORAGE, {});
+  lightOrders[roomId] = ids;
+  localStorage.setItem(LIGHT_ORDER_STORAGE, JSON.stringify(lightOrders));
+  render(lastGroups, lastLights);
+}
+
 // ---------- rendering ----------
 
 function supportsColor(light) {
@@ -317,6 +550,19 @@ function debounce(fn, ms) {
     clearTimeout(t);
     t = setTimeout(() => fn(...args), ms);
   };
+}
+
+function moveButtons(onUp, onDown) {
+  const wrap = document.createElement("span");
+  wrap.className = "movebtns";
+  const up = document.createElement("button");
+  up.textContent = "↑";
+  up.addEventListener("click", onUp);
+  const down = document.createElement("button");
+  down.textContent = "↓";
+  down.addEventListener("click", onDown);
+  wrap.append(up, down);
+  return wrap;
 }
 
 function buildLightCard(id, light) {
@@ -403,6 +649,20 @@ function buildLightCard(id, light) {
   return card;
 }
 
+function buildReorderRow(roomId, lightId, light) {
+  const row = document.createElement("div");
+  row.className = "light reorder-row";
+  const name = document.createElement("div");
+  name.className = "name";
+  name.textContent = light.name;
+  row.appendChild(name);
+  row.appendChild(moveButtons(
+    () => moveLight(roomId, lightId, -1),
+    () => moveLight(roomId, lightId, +1),
+  ));
+  return row;
+}
+
 function updateLightCard(card, light) {
   const s = light.state;
   card.classList.toggle("off", !s.on);
@@ -422,48 +682,36 @@ function render(groups, lights) {
   main.innerHTML = "";
   cards.clear();
 
-  const rooms = Object.entries(groups)
-    .filter(([, g]) => g.type === "Room")
-    .sort((a, b) => a[1].name.localeCompare(b[1].name));
+  if (reorderMode) {
+    const hint = document.createElement("div");
+    hint.id = "reorder-hint";
+    hint.textContent = "Reorder mode — use the arrows to move rooms and lights, then press ⇅ again to finish. Order is saved in this browser.";
+    main.appendChild(hint);
+  }
 
-  const assigned = new Set();
-
-  for (const [, room] of rooms) {
-    const ids = room.lights.filter((id) => lights[id]);
-    if (ids.length === 0) continue;
+  for (const room of roomList(groups, lights)) {
     const section = document.createElement("section");
     section.className = "room";
     const h = document.createElement("h2");
     h.textContent = room.name;
+    if (reorderMode) {
+      h.appendChild(moveButtons(
+        () => moveRoom(room.id, -1),
+        () => moveRoom(room.id, +1),
+      ));
+    }
     section.appendChild(h);
-    ids
-      .sort((a, b) => lights[a].name.localeCompare(lights[b].name))
-      .forEach((id) => {
-        assigned.add(id);
-        const card = buildLightCard(id, lights[id]);
-        updateLightCard(card, lights[id]);
-        cards.set(id, card);
-        section.appendChild(card);
-      });
-    main.appendChild(section);
-  }
-
-  // lights not in any room
-  const orphans = Object.keys(lights).filter((id) => !assigned.has(id));
-  if (orphans.length) {
-    const section = document.createElement("section");
-    section.className = "room";
-    const h = document.createElement("h2");
-    h.textContent = "Other";
-    section.appendChild(h);
-    orphans
-      .sort((a, b) => lights[a].name.localeCompare(lights[b].name))
-      .forEach((id) => {
-        const card = buildLightCard(id, lights[id]);
-        updateLightCard(card, lights[id]);
-        cards.set(id, card);
-        section.appendChild(card);
-      });
+    for (const id of room.lightIds) {
+      let el;
+      if (reorderMode) {
+        el = buildReorderRow(room.id, id, lights[id]);
+      } else {
+        el = buildLightCard(id, lights[id]);
+        updateLightCard(el, lights[id]);
+        cards.set(id, el);
+      }
+      section.appendChild(el);
+    }
     main.appendChild(section);
   }
 }
@@ -487,13 +735,13 @@ async function setState(id, state) {
 let rendered = false;
 
 async function refresh() {
-  if (interacting > 0) return;
+  if (interacting > 0 || reorderMode) return;
   try {
     const [lights, groups] = await Promise.all([
       api("GET", "/lights"),
       api("GET", "/groups"),
     ]);
-    if (lights[0] && lights[0].error) {
+    if (Array.isArray(lights) && lights[0] && lights[0].error) {
       if (lights[0].error.type === 1) { // unauthorized — key revoked
         localStorage.removeItem(KEY_STORAGE);
         appKey = null;
@@ -503,6 +751,8 @@ async function refresh() {
       throw new Error(lights[0].error.description);
     }
     hideError();
+    lastGroups = groups;
+    lastLights = lights;
     if (!rendered || roomsChanged(lights)) {
       render(groups, lights);
       rendered = true;
@@ -539,17 +789,87 @@ function hideError() {
 function showPairing() {
   rendered = false;
   $("#rooms").classList.add("hidden");
+  $("#settings").classList.add("hidden");
   $("#pair").classList.remove("hidden");
+  $("#reorder-btn").classList.add("hidden");
+  $("#settings-btn").classList.add("hidden");
   clearInterval(refreshTimer);
 }
 
 function start() {
   $("#pair").classList.add("hidden");
   $("#rooms").classList.remove("hidden");
+  $("#reorder-btn").classList.remove("hidden");
+  $("#settings-btn").classList.remove("hidden");
   refresh();
   clearInterval(refreshTimer);
   refreshTimer = setInterval(refresh, REFRESH_MS);
 }
+
+// settings panel
+
+let keyVisible = false;
+
+function renderKeyDisplay() {
+  $("#key-display").textContent = keyVisible && appKey
+    ? appKey
+    : "•".repeat(Math.max(appKey ? appKey.length : 32, 16));
+  $("#key-show-btn").textContent = keyVisible ? "Hide" : "Show";
+}
+
+function openSettings() {
+  keyVisible = false;
+  renderKeyDisplay();
+  $("#settings-msg").textContent = "";
+  $("#key-input").value = "";
+  $("#settings").classList.remove("hidden");
+  $("#rooms").classList.add("hidden");
+}
+
+function closeSettings() {
+  $("#settings").classList.add("hidden");
+  $("#rooms").classList.remove("hidden");
+}
+
+$("#settings-btn").addEventListener("click", () => {
+  if ($("#settings").classList.contains("hidden")) openSettings();
+  else closeSettings();
+});
+
+$("#key-show-btn").addEventListener("click", () => {
+  keyVisible = !keyVisible;
+  renderKeyDisplay();
+});
+
+$("#key-copy-btn").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(appKey);
+    $("#key-copy-btn").textContent = "Copied!";
+  } catch {
+    // clipboard API unavailable (e.g. file:// in some browsers) — reveal for manual copy
+    keyVisible = true;
+    renderKeyDisplay();
+    $("#key-copy-btn").textContent = "Select & copy above";
+  }
+  setTimeout(() => { $("#key-copy-btn").textContent = "Copy"; }, 2000);
+});
+
+$("#key-set-btn").addEventListener("click", () => adoptKey($("#key-input").value, $("#settings-msg")));
+$("#pair-key-btn").addEventListener("click", () => adoptKey($("#pair-key-input").value, $("#pair-msg")));
+$("#pair-key-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") adoptKey($("#pair-key-input").value, $("#pair-msg"));
+});
+
+// reorder mode
+
+$("#reorder-btn").addEventListener("click", () => {
+  reorderMode = !reorderMode;
+  $("#reorder-btn").style.background = reorderMode ? "var(--accent)" : "";
+  $("#reorder-btn").style.color = reorderMode ? "#1a1206" : "";
+  closeSettings();
+  if (lastGroups && lastLights) render(lastGroups, lastLights);
+  if (!reorderMode) refresh();
+});
 
 $("#pair-btn").addEventListener("click", pair);
 
