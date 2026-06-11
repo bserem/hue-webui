@@ -25,6 +25,7 @@ to the Hue bridge).
   - `hue-app-key` — bridge API key
   - `hue-room-order` — JSON array of room ids (display order)
   - `hue-light-order` — JSON map of room id → array of light ids
+  - `hue-visible-types` — JSON `{rooms, zones}` booleans (settings checkboxes)
 - Names of rooms/lights are stored **on the bridge** (rename uses
   `PUT /lights/<id>` and `PUT /groups/<id>`), not locally.
 

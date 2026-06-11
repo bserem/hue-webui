@@ -399,6 +399,16 @@
   }
   #settings .btnrow { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
   #settings .msg { margin-top: 8px; }
+  #settings .cbrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--text);
+    margin-bottom: 8px;
+    cursor: pointer;
+  }
+  #settings .cbrow input { accent-color: var(--accent); }
 
   footer {
     text-align: center;
@@ -490,6 +500,11 @@
       </div>
       <div class="msg" id="settings-msg"></div>
     </section>
+    <section>
+      <label>Visible groups</label>
+      <label class="cbrow"><input type="checkbox" id="show-rooms-cb"> Show rooms</label>
+      <label class="cbrow"><input type="checkbox" id="show-zones-cb"> Show zones</label>
+    </section>
   </div>
 </div>
 
@@ -508,6 +523,7 @@ const IP_STORAGE = "hue-bridge-ip";
 const KEY_STORAGE = "hue-app-key";
 const ROOM_ORDER_STORAGE = "hue-room-order";
 const LIGHT_ORDER_STORAGE = "hue-light-order";
+const VISIBLE_TYPES_STORAGE = "hue-visible-types";
 const OTHER_ROOM_ID = "__other";
 const REFRESH_MS = 5000;
 
@@ -705,6 +721,10 @@ function loadJSON(key, fallback) {
   }
 }
 
+function visibleTypes() {
+  return { rooms: true, zones: true, ...loadJSON(VISIBLE_TYPES_STORAGE, {}) };
+}
+
 // saved order first, unknown ids appended sorted by name
 function orderedSort(ids, saved, nameOf) {
   return ids.slice().sort((a, b) => {
@@ -727,8 +747,15 @@ function roomList(groups, lights) {
   const orphans = Object.keys(lights).filter((id) => !assigned.has(id));
   if (orphans.length) rooms.push({ id: OTHER_ROOM_ID, name: "Other", lightIds: orphans });
 
+  // hide whole kinds per settings; "Other" (no type) follows the rooms
+  // checkbox; filtering after orphan computation so hiding rooms doesn't
+  // dump their lights into "Other"
+  const visible = visibleTypes();
+  const shown = rooms.filter((r) =>
+    r.type === "Zone" ? visible.zones : visible.rooms);
+
   const roomOrder = loadJSON(ROOM_ORDER_STORAGE, []);
-  const byId = new Map(rooms.map((r) => [r.id, r]));
+  const byId = new Map(shown.map((r) => [r.id, r]));
   const sortedIds = orderedSort([...byId.keys()], roomOrder, (id) => byId.get(id).name);
 
   const lightOrders = loadJSON(LIGHT_ORDER_STORAGE, {});
@@ -1289,6 +1316,9 @@ function openSettings() {
   $("#settings-msg").textContent = "";
   $("#key-input").value = "";
   $("#ip-input").value = bridgeIp;
+  const visible = visibleTypes();
+  $("#show-rooms-cb").checked = visible.rooms;
+  $("#show-zones-cb").checked = visible.zones;
   $("#settings").classList.remove("hidden");
   $("#rooms").classList.add("hidden");
 }
@@ -1326,6 +1356,16 @@ $("#key-set-btn").addEventListener("click", () => adoptKey($("#key-input").value
 $("#ip-set-btn").addEventListener("click", async () => {
   if (await saveBridgeIp($("#ip-input").value, $("#settings-msg"))) refresh();
 });
+
+function saveVisibleTypes() {
+  localStorage.setItem(VISIBLE_TYPES_STORAGE, JSON.stringify({
+    rooms: $("#show-rooms-cb").checked,
+    zones: $("#show-zones-cb").checked,
+  }));
+  if (lastGroups && lastLights) render(lastGroups, lastLights);
+}
+$("#show-rooms-cb").addEventListener("change", saveVisibleTypes);
+$("#show-zones-cb").addEventListener("change", saveVisibleTypes);
 
 async function pairWithKey() {
   if (!(await saveBridgeIp($("#pair-ip-input").value, $("#pair-msg")))) return;

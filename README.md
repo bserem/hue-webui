@@ -22,8 +22,9 @@ Over plain HTTP no certificate step is needed.
   paste an existing app key (useful on a new browser). Key and IP are stored
   in `localStorage`; the key can be viewed/copied/replaced and the IP changed
   from the settings panel (⚙).
-- **Lights by room** — lights grouped by the bridge's rooms; unassigned
-  lights appear under *Other*. Live state refresh every 5 seconds.
+- **Lights by room** — lights grouped by the bridge's rooms and zones;
+  unassigned lights appear under *Other*. Live state refresh every 5 seconds.
+  Rooms and zones can each be shown or hidden from the settings panel (⚙).
 - **Per light**: on/off toggle, brightness slider, HTML5 color picker for
   color lamps, kelvin slider (100 K steps, live readout) for white — on both
   ambiance and color lamps.

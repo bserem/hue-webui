@@ -75,3 +75,7 @@ Follow-up fix during review:
 ## 14. Bright/dark mode
 
 > Make the page have a Bright/Dark UI mode. Control button on top right
+
+## 15. Show/hide rooms and zones
+
+> Add options under settings to show/hide rooms/zones. 2 checkboxes.
