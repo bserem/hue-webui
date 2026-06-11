@@ -79,3 +79,7 @@ Follow-up fix during review:
 ## 15. Show/hide rooms and zones
 
 > Add options under settings to show/hide rooms/zones. 2 checkboxes.
+
+## 16. Export/import config
+
+> Add option to export/import config. Should be available on first run too if no bridge is found.

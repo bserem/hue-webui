@@ -37,6 +37,10 @@ Over plain HTTP no certificate step is needed.
 - **Reorder & rename** (⇅) — arrange rooms and lights with arrow buttons
   (order saved per browser), rename them with ✏ (saved on the bridge, so
   all Hue apps see the new names).
+- **Export / import config** — download all settings (bridge IP, app key,
+  ordering, UI preferences) as a JSON file and restore them elsewhere, from
+  the settings panel or directly on the pairing screen (handy on a fresh
+  browser when the bridge isn't found).
 
 ## Usage
 

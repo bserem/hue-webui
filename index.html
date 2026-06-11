@@ -397,7 +397,8 @@
     word-break: break-all;
     user-select: all;
   }
-  #settings .btnrow { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .btnrow { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .card .btnrow { justify-content: center; }
   #settings .msg { margin-top: 8px; }
   #settings .cbrow {
     display: flex;
@@ -471,8 +472,15 @@
     <input type="text" id="pair-key-input" placeholder="Paste app key" spellcheck="false">
     <button class="secondary" id="pair-key-btn">Use key</button>
   </div>
+  <div class="divider">or restore a saved config</div>
+  <div class="btnrow">
+    <button class="secondary" id="pair-import-btn">Import config</button>
+    <button class="secondary" id="pair-export-btn">Export config</button>
+  </div>
   <div class="msg" id="pair-msg"></div>
 </div>
+
+<input type="file" id="import-file" accept=".json,application/json" class="hidden">
 
 <div id="settings" class="hidden">
   <div class="inner">
@@ -504,6 +512,14 @@
       <label>Visible groups</label>
       <label class="cbrow"><input type="checkbox" id="show-rooms-cb"> Show rooms</label>
       <label class="cbrow"><input type="checkbox" id="show-zones-cb"> Show zones</label>
+    </section>
+    <section>
+      <label>Backup — bridge IP, app key, ordering and UI preferences as a JSON file</label>
+      <div class="btnrow">
+        <button class="secondary" id="export-btn">Export config</button>
+        <button class="secondary" id="import-btn">Import config</button>
+      </div>
+      <div class="msg" id="backup-msg"></div>
     </section>
   </div>
 </div>
@@ -1314,6 +1330,7 @@ function openSettings() {
   keyVisible = false;
   renderKeyDisplay();
   $("#settings-msg").textContent = "";
+  $("#backup-msg").textContent = "";
   $("#key-input").value = "";
   $("#ip-input").value = bridgeIp;
   const visible = visibleTypes();
@@ -1404,6 +1421,72 @@ $("#theme-btn").addEventListener("click", () => {
 });
 
 applyTheme();
+
+// config export/import — every hue-* localStorage key as one JSON file,
+// so a setup can be moved to another browser (or restored when the
+// bridge can't be reached on first run)
+
+const CONFIG_KEYS = [
+  IP_STORAGE, KEY_STORAGE, ROOM_ORDER_STORAGE, LIGHT_ORDER_STORAGE,
+  VISIBLE_TYPES_STORAGE, COLLAPSED_STORAGE, THEME_STORAGE,
+];
+
+function exportConfig() {
+  const config = {};
+  for (const key of CONFIG_KEYS) {
+    const raw = localStorage.getItem(key);
+    if (raw === null) continue;
+    // JSON-valued keys are embedded as objects/arrays, plain strings as-is
+    try { config[key] = JSON.parse(raw); } catch { config[key] = raw; }
+  }
+  const blob = new Blob([JSON.stringify(config, null, 2) + "\n"],
+    { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "hue-webui-config.json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+async function importConfig(file, msgEl) {
+  msgEl.classList.remove("err");
+  msgEl.textContent = "";
+  try {
+    const data = JSON.parse(await file.text());
+    if (typeof data !== "object" || data === null || Array.isArray(data)) {
+      throw new Error("not a config object");
+    }
+    const keys = CONFIG_KEYS.filter((k) => k in data);
+    if (!keys.length) throw new Error("no Hue Control settings in this file");
+    for (const k of keys) {
+      const v = data[k];
+      localStorage.setItem(k, typeof v === "string" ? v : JSON.stringify(v));
+    }
+    location.reload(); // re-init from the imported state
+  } catch (err) {
+    msgEl.textContent = `Import failed: ${err.message}`;
+    msgEl.classList.add("err");
+  }
+}
+
+const importFileInput = $("#import-file");
+let importMsgEl = null;
+
+function pickImportFile(msgEl) {
+  importMsgEl = msgEl;
+  importFileInput.value = "";
+  importFileInput.click();
+}
+
+importFileInput.addEventListener("change", () => {
+  const file = importFileInput.files[0];
+  if (file && importMsgEl) importConfig(file, importMsgEl);
+});
+
+$("#export-btn").addEventListener("click", exportConfig);
+$("#import-btn").addEventListener("click", () => pickImportFile($("#backup-msg")));
+$("#pair-export-btn").addEventListener("click", exportConfig);
+$("#pair-import-btn").addEventListener("click", () => pickImportFile($("#pair-msg")));
 
 // master switch: group 0 addresses every light on the bridge
 $("#all-toggle").addEventListener("change", async (e) => {
